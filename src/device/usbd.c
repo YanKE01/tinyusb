@@ -799,11 +799,26 @@ static bool process_control_request(uint8_t rhport, tusb_control_request_t const
         uint8_t const itf = tu_u16_low(p_request->wIndex);
         TU_VERIFY(itf < TU_ARRAY_SIZE(_usbd_dev.itf2drv));
 
-        usbd_class_driver_t const * driver = get_driver(_usbd_dev.itf2drv[itf]);
-        TU_VERIFY(driver);
+        // First try the driver hinted by wIndex.
+        uint8_t const drv_hint = _usbd_dev.itf2drv[itf];
+        if (drv_hint != DRVID_INVALID) {
+          usbd_class_driver_t const * driver = get_driver(drv_hint);
+          if (driver && invoke_class_control(rhport, driver, p_request)) {
+            return true;
+          }
+        }
 
-        // forward to class driver: "non-STD request to Interface"
-        return invoke_class_control(rhport, driver, p_request);
+        // Some hosts use wIndex=0 for device-recipient class requests in
+        // composite devices. Fall back to probing other class drivers.
+        for (uint8_t drv_id = 0; drv_id < TOTAL_DRIVER_COUNT; drv_id++) {
+          if (drv_id == drv_hint) continue;
+          usbd_class_driver_t const * driver = get_driver(drv_id);
+          if (driver && invoke_class_control(rhport, driver, p_request)) {
+            return true;
+          }
+        }
+
+        return false;
       }
 
       if ( TUSB_REQ_TYPE_STANDARD != p_request->bmRequestType_bit.type ) {

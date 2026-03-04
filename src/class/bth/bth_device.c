@@ -173,6 +173,10 @@ uint16_t btd_open(uint8_t rhport, tusb_desc_interface_t const *itf_desc, uint16_
 
   drv_len = hci_itf_size;
 
+#if CFG_TUD_BTH_ISO_ALT_COUNT == 0
+  return drv_len;
+#endif
+
   // Ensure this is still BT Primary Controller
   TU_ASSERT(TUSB_CLASS_WIRELESS_CONTROLLER == itf_desc->bInterfaceClass &&
                 TUD_BT_APP_SUBCLASS == itf_desc->bInterfaceSubClass &&
@@ -242,7 +246,8 @@ bool btd_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t c
         request->bmRequestType_bit.recipient == TUSB_REQ_RCPT_DEVICE) {
       // HCI command packet addressing for single function Primary Controllers
       // also compatible with historical mode if enabled
-      TU_VERIFY((request->bRequest == 0 && request->wValue == 0 && request->wIndex == 0) ||
+      TU_VERIFY((request->bRequest == 0 && request->wValue == 0 &&
+                 (request->wIndex == 0 || request->wIndex == _btd_itf.itf_num)) ||
                 (CFG_TUD_BTH_HISTORICAL_COMPATIBLE && request->bRequest == 0xe0));
     } else if (request->bmRequestType_bit.recipient == TUSB_REQ_RCPT_INTERFACE) {
       if (request->bRequest == TUSB_REQ_SET_INTERFACE && _btd_itf.itf_num + 1 == request->wIndex) {

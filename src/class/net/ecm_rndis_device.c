@@ -292,6 +292,10 @@ bool netd_control_xfer_cb (uint8_t rhport, uint8_t stage, tusb_control_request_t
             if (ecm_link_is_up) {
               ecm_report(true);
             }
+          } else {
+            // Let other class drivers (e.g. BTH in composite devices) handle
+            // unrelated class requests instead of swallowing them.
+            return false;
           }
         } else {
           if (request->bmRequestType_bit.direction == TUSB_DIR_IN) {
